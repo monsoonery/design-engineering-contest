@@ -7,6 +7,7 @@ ServoDriver servo;                            // servodriver object
 
 const int servoPin = 1;                       // pin number on DRIVER, NOT on Arduino board
 const int servoPin2 = 2;                      // pin number on DRIVER, NOT on Arduino board
+const int potPin = A6;
 
 void setup() {
   Serial.begin(9600);
@@ -16,6 +17,12 @@ void setup() {
 }
 
 void loop() {
+  //uncomment the code you want to use
+  //demo();
+  potControl();
+}
+
+void demo() {
   for (int i = 90; i <= 270; i++) {
     servo.setAngle(servoPin, i);                     // loop through all values
     servo.setAngle(servoPin2, i);
@@ -31,7 +38,12 @@ void loop() {
   Serial.println("neutral");
   delay(1000);
   servo.setAngle(servoPin, 90);                      // maximum rotation speed for 1 second (opposite direction)
-  servo.setAngle(servoPin2, 90); 
+  servo.setAngle(servoPin2, 90);
   Serial.println("max rechtsom");
   delay(1000);
+}
+
+void potControl() {
+  int value = map(analogRead(potPin), 0, 1023, 90, 270);
+  servo.setAngle(servoPin, value);
 }
