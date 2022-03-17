@@ -1,16 +1,18 @@
 /* AMONG US */
 #include "pitches.h"
-
 const uint8_t buzzerPin = 8;
 
 void setup() {
-  playCurb();
+  //playCurb(1200, false);
+  //playAmogus(1200, false);
+  //startSansMelody(1000, false);
 }
 
 void loop() {
-
+  updateMelody();
 }
 
+/*
 void playAmogus() {
   // notes in the melody
   int melody[] = {
@@ -119,3 +121,4 @@ void playCurb() {
     noTone(buzzerPin);
   }
 }
+*/
