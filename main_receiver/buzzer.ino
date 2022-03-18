@@ -93,7 +93,7 @@ uint8_t sansNoteDurations[] = {
 };
 int sansMelodyLength = sizeof(sansMelody) / sizeof(sansMelody[0]);
 
-int backwardsMelody[] = {NOTE_A5, 0};
+int backwardsMelody[] = {1000 , 0};
 uint8_t backwardsNoteDurations[] = {2, 2};
 int backwardsMelodyLength = sizeof(backwardsMelody) / sizeof(backwardsMelody[0]);
 
