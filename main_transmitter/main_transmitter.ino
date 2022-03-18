@@ -18,10 +18,15 @@ const int x1Pin = A1;                           // x-position of joystick 1
 const int y1Pin = A0;                           // y-position of joystick 1
 const int x2Pin = A3;                           // x-position of joystick 2
 const int y2Pin = A2;                           // y-position of joystick 2
-const int stickPin = 4;                         // joystick button
 
-const int ledPin = 7;                           // led button - led
-const int buttonPin = 8;                        // led button - button
+const int stickPin = 2;                         // joystick button
+const int grabButtonPin = 3;                    // grab button
+const int precisionLedPin = 4;                  // indicator light for precision mode
+const int blueLedPin = 5;                       // blue led button - led
+const int blueButtonPin = 6;                    // blue led button - button
+const int redLedPin = 7;                        // red led button - led
+const int redButtonPin = 8;                     // red led button - button
+
 const int potPin = A6;
 
 /* MELODY LIST */
@@ -47,27 +52,52 @@ uint8_t output_power_R     = 0,
         output_power_L     = 0,
         output_direction_L = 0,
         prev_bw = 0;
+bool precisionMode = false;
 
-/* BUTTON DEBOUNCE */
-boolean lastButtonPressed = false;
-
-boolean buttonPress() {
-  boolean buttonStatus = false;
-  boolean buttonPressed = digitalRead(buttonPin);
-  if (buttonPressed && !lastButtonPressed) {
-    buttonStatus = true;
-    digitalWrite(ledPin, !digitalRead(ledPin));
+/* RED BUTTON DEBOUNCE */
+boolean lastRedButtonPressed = false;
+boolean redButtonPress() {
+  boolean redButtonStatus = false;
+  boolean redButtonPressed = !digitalRead(redButtonPin);
+  if (redButtonPressed && !lastRedButtonPressed) {
+    redButtonStatus = true;
+    digitalWrite(redLedPin, !digitalRead(redLedPin));
   }
-  lastButtonPressed = buttonPressed;
-  return buttonStatus;
+  lastRedButtonPressed = redButtonPressed;
+  return redButtonStatus;
 }
+
+/* BLUE BUTTON DEBOUNCE */
+boolean lastBlueButtonPressed = false;
+boolean blueButtonPress() {
+  boolean blueButtonStatus = false;
+  boolean blueButtonPressed = !digitalRead(blueButtonPin);
+  if (blueButtonPressed && !lastBlueButtonPressed) {
+    blueButtonStatus = true;
+    digitalWrite(blueLedPin, !digitalRead(blueLedPin));
+  }
+  lastBlueButtonPressed = blueButtonPressed;
+  return blueButtonStatus;
+}
+
+/* GRAB BUTTON DEBOUNCE */
+boolean lastGrabButtonPressed = false;
+boolean grabButtonPress() {
+  boolean grabButtonStatus = false;
+  boolean grabButtonPressed = digitalRead(grabButtonPin);
+  if (grabButtonPressed && !lastGrabButtonPressed) {
+    grabButtonStatus = true;
+  }
+  lastGrabButtonPressed = grabButtonPressed;
+  return grabButtonStatus;
+}
+
 
 /* STICK DEBOUNCE */
 boolean lastStickPressed = false;
-
 boolean stickPress() {
   boolean stickStatus = false;
-  boolean stickPressed = digitalRead(stickPin);
+  boolean stickPressed = !digitalRead(stickPin);
   if (stickPressed && !lastStickPressed) {
     stickStatus = true;
   }
@@ -78,17 +108,19 @@ boolean stickPress() {
 void setup() {
   Serial.begin(9600);
   pinMode(stickPin, INPUT_PULLUP);            // use internal 10k pullup resistor for joystick button
+  
   radio.begin();                                // setup myRadio module
   radio.openWritingPipe(pipeName);
   radio.setPALevel(RF24_PA_MIN);
   radio.stopListening();                        // this is a transmitter
-  digitalWrite(ledPin, LOW);                    // init led pin as zero
 
   //clear the buffers
   for (int i = 0; i < bufferSize; i++) {
     circularBufferX.push(0);
     circularBufferY.push(0);
   }
+  Serial.println("init done");
+  delay(1000);
 }
 
 void loop() {
@@ -100,10 +132,21 @@ void loop() {
 
 void checkInputs() {
   /* WHEELS */
+  //stick press (precision mode)
+  if (stickPress()) {
+    precisionMode = !precisionMode;
+    digitalWrite(precisionLedPin, precisionMode);
+  }
+  
   int X = analogRead(x1Pin);
   int Y = analogRead(y1Pin);
-  joystick_input_X = map(X, 0, 1023, -80, 80);
-  joystick_input_Y = map(Y, 0, 1023, -255, 255);
+  if (precisionMode) {
+    joystick_input_X = map(X, 0, 1023, -20, 20);
+    joystick_input_Y = map(Y, 0, 1023, -80, 80);
+  } else {
+    joystick_input_X = map(X, 0, 1023, -80, 80);
+    joystick_input_Y = map(Y, 0, 1023, -255, 255);
+  }
 
   //take the average joystick input to prevent abrupt changes
   circularBufferX.push(joystick_input_X);
@@ -152,64 +195,39 @@ void checkInputs() {
       payload[4] = BACKWARDS;
       prev_bw = true;
     } else {
-      otherSounds();
+      //otherSounds();
     }
   } else {
     if (prev_bw) {
       payload[4] = NOSOUND;
       prev_bw = false;
     } else {
-      otherSounds();
+      //otherSounds();
     }
   }
-  //payload[5];
 
-  // potentiometer state
+  //todo if button press grab and throw block
+  payload[5] = grabButtonPress() ? true : false;
+
+  //todo if button press open trap door
+  if (redButtonPress()) {
+    payload[6] = !payload[6];
+  }
+
+  //todo if button press open or close big doors
+  if (blueButtonPress()) {
+    payload[7] = !payload[7];
+  }
+
+  // potentiometer state (belt speed)
   int potValue = analogRead(potPin);
-  payload[7] = map(potValue, 0, 1023, 0, 255);
-}
-
-void checkInputs2() {
-  joystick_input_X = map(analogRead(x1Pin), 0, 1023, -255, 255);
-  joystick_input_X2 = map(analogRead(x2Pin), 0, 1023, -255, 255);
-
-  speed_R = joystick_input_X;
-  speed_L = joystick_input_X2;
-  Serial.println(speed_R);
-  Serial.println(speed_L);
-
-  int output_power_R     = 0,
-      output_direction_R = 0,
-      output_power_L     = 0,
-      output_direction_L = 0;
-
-
-  if (joystick_input_X > 0) {
-    output_power_R = joystick_input_X;
-    output_direction_R = LOW;
-  } else {
-    output_power_R = 255 + joystick_input_X;
-    output_direction_R = HIGH;
-  }
-
-  if (joystick_input_X2 > 0) {
-    output_power_L = joystick_input_X2;
-    output_direction_L = LOW;
-  } else {
-    output_power_L = 255 + joystick_input_X2;
-    output_direction_L = HIGH;
-  }
-
-  payload[0] = output_power_L;
-  payload[1] = output_power_R;
-  payload[2] = output_direction_L;
-  payload[3] = output_direction_R;
+  payload[8] = map(potValue, 0, 1023, 0, 255);
 }
 
 void otherSounds() {
   if (stickPress()) {
     payload[4] = SANS;
-  } else if (buttonPress()) {
+  } else if (redButtonPress()) {
     payload[4] = AMOGUS;
   } else {
     payload[4] = PASS;
