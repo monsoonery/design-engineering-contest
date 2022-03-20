@@ -97,6 +97,17 @@ int backwardsMelody[] = {1000 , 0};
 uint8_t backwardsNoteDurations[] = {2, 2};
 int backwardsMelodyLength = sizeof(backwardsMelody) / sizeof(backwardsMelody[0]);
 
+int spaceMelody[] = {NOTE_C3, NOTE_G3, NOTE_C4, 0, NOTE_E4, NOTE_DS4};
+uint8_t spaceNoteDurations[] = {2, 2, 2, 8, 8, 2};
+int spaceMelodyLength = sizeof(spaceMelody) / sizeof(spaceMelody[0]);
+
+int denyMelody[] = {0, NOTE_C4, NOTE_G3};
+uint8_t denyNoteDurations[] = {4, 8, 8};
+int denyMelodyLength = sizeof(denyMelody) / sizeof(denyMelody[0]);
+
+int acceptMelody[] = {0, NOTE_G3, NOTE_C3};
+uint8_t acceptNoteDurations[] = {4, 8, 8};
+int acceptMelodyLength = sizeof(acceptMelody) / sizeof(acceptMelody[0]);
 
 /* MELODY LIST */
 enum melodyType {
@@ -105,6 +116,9 @@ enum melodyType {
   CURB,
   SANS,
   BACKWARDS,
+  SPACE,
+  DENY,
+  ACCEPT,
   NOSOUND
 };
 
@@ -152,6 +166,39 @@ void startBackwardsMelody() {
     currentNoteDuration = tempo / backwardsNoteDurations[0];
     melodyPlaying = true;
     currentMelody = BACKWARDS;
+  }
+}
+
+void startSpaceMelody(int melody_tempo, boolean loop) {
+  if (!melodyPlaying) {
+    tempo = melody_tempo;
+    loopMelody = loop;
+    currentNote = 0;
+    currentNoteDuration = tempo / spaceNoteDurations[0];
+    melodyPlaying = true;
+    currentMelody = SPACE;
+  }
+}
+
+void startDenyMelody(int melody_tempo, boolean loop) {
+  if (!melodyPlaying) {
+    tempo = melody_tempo;
+    loopMelody = loop;
+    currentNote = 0;
+    currentNoteDuration = tempo / denyNoteDurations[0];
+    melodyPlaying = true;
+    currentMelody = DENY;
+  }
+}
+
+void startAcceptMelody(int melody_tempo, boolean loop) {
+  if (!melodyPlaying) {
+    tempo = melody_tempo;
+    loopMelody = loop;
+    currentNote = 0;
+    currentNoteDuration = tempo / acceptNoteDurations[0];
+    melodyPlaying = true;
+    currentMelody = ACCEPT;
   }
 }
 
@@ -211,6 +258,42 @@ void updateMelody() {
           }
           currentNoteDuration = tempo / backwardsNoteDurations[currentNote];
           tone(buzzerPin, backwardsMelody[currentNote], currentNoteDuration - pauseBetweenNotes);
+          lastNotePlayed = millis();
+          break;
+
+        case SPACE:
+          if (currentNote == spaceMelodyLength && loopMelody) {
+            currentNote = 0;
+          } else if (currentNote == spaceMelodyLength && !loopMelody) {
+            melodyPlaying = false;
+            noTone(buzzerPin);
+          }
+          currentNoteDuration = tempo / spaceNoteDurations[currentNote];
+          tone(buzzerPin, spaceMelody[currentNote], currentNoteDuration - pauseBetweenNotes);
+          lastNotePlayed = millis();
+          break;
+
+        case DENY:
+          if (currentNote == denyMelodyLength && loopMelody) {
+            currentNote = 0;
+          } else if (currentNote == denyMelodyLength && !loopMelody) {
+            melodyPlaying = false;
+            noTone(buzzerPin);
+          }
+          currentNoteDuration = tempo / denyNoteDurations[currentNote];
+          tone(buzzerPin, denyMelody[currentNote], currentNoteDuration - pauseBetweenNotes);
+          lastNotePlayed = millis();
+          break;
+
+        case ACCEPT:
+          if (currentNote == acceptMelodyLength && loopMelody) {
+            currentNote = 0;
+          } else if (currentNote == acceptMelodyLength && !loopMelody) {
+            melodyPlaying = false;
+            noTone(buzzerPin);
+          }
+          currentNoteDuration = tempo / acceptNoteDurations[currentNote];
+          tone(buzzerPin, acceptMelody[currentNote], currentNoteDuration - pauseBetweenNotes);
           lastNotePlayed = millis();
           break;
       }
