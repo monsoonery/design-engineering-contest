@@ -44,9 +44,9 @@ enum melodyType {
 };  // KEEP THIS LIST UP TO DATE ACCROSS BOTH CODE FILES OR SHIT GOES HAYWIRE
 
 /* VARIABLES */
-const uint8_t constrainValue = 20,
-              maxSpeedPower = 255,
-              maxSteerPower = 100,
+const uint8_t constrainValue = 50,
+              maxSpeedPower = 150,
+              maxSteerPower = 150,
               maxSpeedPowerPrec = 100,
               maxSteerPowerPrec = 50;
 int speed_R = 0;
@@ -62,7 +62,7 @@ uint8_t output_power_R     = 0,
         prev_bw = 0;
 bool precisionMode = false,
      trapdoorOpen = false,
-     doorOpen = false,
+     kokerdoorOpen = false,
      defending = false;
 
 /* RED BUTTON DEBOUNCE */
@@ -72,7 +72,6 @@ boolean redButtonPress() {
   boolean redButtonPressed = !digitalRead(redButtonPin);
   if (redButtonPressed && !lastRedButtonPressed) {
     redButtonStatus = true;
-    digitalWrite(redLedPin, !digitalRead(redLedPin));
   }
   lastRedButtonPressed = redButtonPressed;
   return redButtonStatus;
@@ -85,7 +84,6 @@ boolean blueButtonPress() {
   boolean blueButtonPressed = !digitalRead(blueButtonPin);
   if (blueButtonPressed && !lastBlueButtonPressed) {
     blueButtonStatus = true;
-    digitalWrite(blueLedPin, !digitalRead(blueLedPin));
   }
   lastBlueButtonPressed = blueButtonPressed;
   return blueButtonStatus;
@@ -220,20 +218,37 @@ void checkInputs() {
 
   //map de benodigde output power adhv de gewenste snelheid en richting
   if (speed_R > 0) {
+    output_power_R = speed_R + constrainValue;
     output_power_R = constrain(speed_R, constrainValue, 255);
+    //output_power_R = map(output_power_R, 0, 255, constrainValue, 255);
     output_direction_R = LOW;
+    Serial.print("R > 0 and output power = ");
+    Serial.print(output_power_R);
   } else {
-    output_power_R = constrain(255 + speed_R, constrainValue, 255);
+    output_power_R = 255 + speed_R - constrainValue;
+    output_power_R = constrain(255 + speed_R, 0, 255 - constrainValue);
+    //output_power_R = map(output_power_L, 0, 255, 0, 255 - constrainValue);
     output_direction_R = HIGH;
+    Serial.print("R < 0 and output power = ");
+    Serial.print(output_power_R);
   }
 
   if (speed_L > 0) {
+    output_power_L = speed_L + constrainValue;
     output_power_L = constrain(speed_L, constrainValue, 255);
+    //output_power_L = map(output_power_L, 0, 255, constrainValue, 255);
     output_direction_L = LOW;
+    Serial.print(" || L > 0 and output power = ");
+    Serial.println(output_power_L);
   } else {
-    output_power_L = constrain(255 + speed_L, constrainValue, 255);
+    output_power_L = 255 + speed_L - constrainValue;
+    output_power_L = constrain(255 + speed_L, 0, 255 - constrainValue);
+    //output_power_L = map(output_power_L, 0, 255, 0, 255 - constrainValue);
     output_direction_L = HIGH;
+    Serial.print(" || L < 0 and output power = ");
+    Serial.println(output_power_L);
   }
+
   /* END WHEEL CALCULATIONS */
 
   // wheel speed and direction
@@ -242,7 +257,7 @@ void checkInputs() {
   payload[2] = output_direction_L;
   payload[3] = output_direction_R;
 
-  // playing the backwards driving sound (aka spaghetticode) 
+  // playing the backwards driving sound (aka spaghetticode)
   // activating another sound/melody will interrupt this sound!
   // todo checken of het ook werkt zonder prev_bw aangezien ik nu heb if !melodyplaying in de receiver code
   if (output_direction_R && output_direction_L &&
@@ -265,7 +280,7 @@ void checkInputs() {
   // press button for grab and throw block sequence
   if (grabButtonPress()) {
     payload[5] = true;
-    tone(buzzerPin, NOTE_A5, 50);                 // auditory feedback on controller            
+    tone(buzzerPin, NOTE_A5, 50);                 // auditory feedback on controller
     payload[4] = DENY;                               // play the grab block sound on the car
   } else {
     payload[5] = false;
@@ -273,34 +288,45 @@ void checkInputs() {
 
   // todo if button press open trap door
   if (redButtonPress()) {
-    payload[6] = true;
-    trapdoorOpen = !trapdoorOpen;
     if (trapdoorOpen) {
-      tone(buzzerPin, NOTE_A5, 50);                 // auditory feedback on controller            
-      payload[4] = DENY;                               // play the open trapdoor sound on the car
+      trapdoorOpen = false;
+      digitalWrite(redLedPin, LOW);
+
+      tone(buzzerPin, NOTE_A5, 50);                 // auditory feedback on controller
+      payload[4] = DENY;
     } else {
+      trapdoorOpen = true;
+      digitalWrite(redLedPin, HIGH);
+
       tone(buzzerPin, NOTE_G4, 50);                 // auditory feedback on controller
-      payload[4] = DENY;                               // play the close trapdoor sound on the car
+      payload[4] = ACCEPT;
     }
+    payload[6] = true;
   } else {
     payload[6] = false;
   }
 
   // todo if button press open or close big doors
   if (blueButtonPress()) {
-    payload[7] = true;
-    doorOpen = !doorOpen;
-    // auditory feedback on controller
-    if (doorOpen) {
-      tone(buzzerPin, NOTE_F4, 50);                 // auditory feedback on controller 
-      //payload[4] = DENY;                               // play the open door sound on the car
+    if (kokerdoorOpen) {
+      kokerdoorOpen = false;
+      digitalWrite(blueLedPin, LOW);
+
+      tone(buzzerPin, NOTE_F4, 50);                 // auditory feedback on controller
+      payload[4] = DENY;
     } else {
-      tone(buzzerPin, NOTE_E4, 50);                 // auditory feedback on controller 
-      //payload[4] = DENY;                               // play the close door sound on the car
+      kokerdoorOpen = true;
+      digitalWrite(blueLedPin, HIGH);
+
+      tone(buzzerPin, NOTE_E4, 50);
+      payload[4] = ACCEPT;
     }
+    payload[7] = true;
   } else {
     payload[7] = false;
   }
+  //Serial.print("Trapdoor: "); Serial.println(trapdoorOpen);
+  //Serial.print("Koker door: "); Serial.println(kokerdoorOpen);
 
   // turn potentiometer to adjust belt speed/direction
   int potValue = analogRead(potPin);
@@ -329,7 +355,7 @@ void checkInputs() {
 
 void sendRadio() {
   radio.write(&payload, sizeof(payload));
-  debugRadio();
+  //debugRadio();
 }
 
 void debugRadio() {

@@ -13,12 +13,12 @@ byte payload[32] = {0};                        // array of bytes that will be se
 
 /* SERVO DRIVER PINS */
 ServoDriver servo;
-const uint8_t leftPin = 2,                    // pin numbers on DRIVER, NOT on Arduino board
-              rightPin = 1,
-              armPin = 16,
+const uint8_t leftPin = 15,                    // pin numbers on DRIVER, NOT on Arduino board
+              rightPin = 16,
+              armPin = 1,
               beltPin = 6,
-              trapdoorPin = 7,
-              kokerdoorPin = 8;
+              trapdoorPin = 8,
+              kokerdoorPin = 7;
 
 
 /* OTHER PINS */
@@ -33,9 +33,13 @@ const uint8_t motorR_power_pin = 5,
 const uint8_t constrainValue = 20,             // absolute minimum value for the wheels to have any movement
               upperBoundArm = 142,             // angle at which the arm is at the floor
               lowerBoundArm = 0,               // angle at which the arm is vertical
-              grabBoundHand = 170,             // angle at which the hands can grab a block
-              receiveBoundHand = 80,           // angle at which the hands can receive a block
-              ungrabBoundHand = 160;           // angle at which the hands let go of a block
+              grabBoundHand = 125,             // angle at which the hands can grab a block
+              receiveBoundHand = 30,           // angle at which the hands can receive a block
+              ungrabBoundHand = 115,           // angle at which the hands let go of a block
+              closedBoundAnkara = 0,           // angle at which the trapdoor is closed
+              openBoundAnkara = 60,            // angle at which the trapdoor is open
+              closeBoundDoor = 24,              // angle at which the big doors are open
+              openBoundDoor = 90;             // angle at which the big doors are closed
 
 enum GS {
   IDLER,
@@ -60,12 +64,18 @@ bool grabButtonPress,                          // these speak for themselves
      defendGrabber;
 
 long previousTime = 0,                         // for grabbing sequence state machine
-     previousSubTime = 0;                      // for subfunctions (grab() ungrab() etc) in the state machine
+     previousSubTime = 0,                      // for subfunctions (grab() ungrab() etc) in the state machine
+     previousDoorTime = 0;                     // for big door opening and closing sequence
 uint8_t currentHandPos = 0,                    // current position of the small hand servos (driver has no read function, so need to be tracked manually)
-        currentArmPos = 0;                     // current position of the large arm servo
+        currentArmPos = 0,                     // current position of the large arm servo
+        currentKokerPos = 0;
 bool alreadyDone = false;                      // avoids weird button shit when trying to get out of defend mode
-bool trapdoorOpen = false;                     // a flag to track the trapdoor status (needed for large doors "safety lock")
+
 unsigned long lastTransmissionTime;            // tracks transmission times (needed to alert us when radio disconnects)
+bool newTransmission = false;                  // code usually loops 3 times between transmissions, this bool prevents triple execution of update functions
+
+bool trapdoorOpen = false,                     // a flag to track the trapdoor status (needed for large doors "safety lock")
+     kokerdoorOpen = false;                    // a flag to track the koker door status
 
 
 void setup() {
@@ -74,13 +84,15 @@ void setup() {
 
 void loop() {
   checkRadio();                              // check for new incoming transmissions
-  checkDefendGrabber();
+  if (newTransmission) {
+    checkDefendGrabber();
+    updateBelt();                              // update the belt speed according to potentiometer input
+    checkSounds();                             // choose the desired melody/sound if applicable
+    updateDoors();                             // open or close the trapdoor or tube doors
+  }
   updateWheels();                            // actuate wheels according to joystick input
-  updateBelt();                              // update the belt speed according to potentiometer input
   updateGrabber();                           // activate the grabbing sequence if button was pressed
-  checkSounds();                             // choose the desired melody/sound if applicable
   updateMelody();                            // update the melody/sound (play the next note) if one was selected
-  updateDoors();                             // open or close the trapdoor or tube doors
 }
 
 void setupWithSound() {
@@ -185,14 +197,16 @@ void checkRadio() {
 
     // register last transmission time
     lastTransmissionTime = millis();
+    newTransmission = true;
   } else {
+    newTransmission = false;
     if (millis() - lastTransmissionTime > 3000) {
       //tone(buzzerPin, NOTE_FS4);
       // stop the wheels to avoid collision until radio is back
-      output_power_L = payload[0];
-      output_power_R = payload[1];
-      output_direction_L = payload[2];
-      output_direction_R = payload[3];
+      output_power_L = 0;
+      output_power_R = 0;
+      output_direction_L = 0;
+      output_direction_R = 0;
     }
   }
 }
@@ -207,7 +221,7 @@ void updateWheels() {
 
 void updateBelt() {
   // map potentiometer value to "angles" for continuous servo
-  int v = map(beltSpeed, 0, 255, 90, 270);
+  int v = map(beltSpeed, 0, 255, 0, 180);
   servo.setAngle(beltPin, v);
 }
 
@@ -226,9 +240,9 @@ void updateGrabber() {
         previousTime = millis();
       } else {
         // keep the grabber ready to receive a block
-        if (moveArm(upperBoundArm, 10)) {
+        if (moveArm(upperBoundArm, 1)) {
           alreadyDone = false;
-          moveHands(receiveBoundHand, 5);
+          moveHands(receiveBoundHand, 1);
         }
       }
       break;
@@ -245,7 +259,7 @@ void updateGrabber() {
       break;
 
     case RAISE:
-      interval = 30;
+      interval = 10;
       grabSequenceInterval = interval * (abs(upperBoundArm - lowerBoundArm)) - 1000;
       //Serial.println(grabSequenceInterval);
       if (moveArm(lowerBoundArm, interval) && millis() - previousTime > grabSequenceInterval) {
@@ -267,7 +281,7 @@ void updateGrabber() {
       break;
 
     case LOWER:
-      interval = 10;
+      interval = 1;
       grabSequenceInterval = interval * (abs(upperBoundArm - lowerBoundArm));
       //Serial.println(grabSequenceInterval);
       if (moveArm(upperBoundArm, interval) && millis() - previousTime > grabSequenceInterval) {
@@ -278,7 +292,7 @@ void updateGrabber() {
       break;
 
     case DEFEND:
-      interval = 5;
+      interval = 1;
       if (moveHands(grabBoundHand, interval)) {
         alreadyDone = false;
         moveArm(lowerBoundArm, interval);
@@ -331,26 +345,78 @@ void checkSounds() {
   }
 }
 
+//void updateDoors() {
+//  if (blueButtonPress) {
+//    //Serial.println(F("Blue press"));
+//    if (trapdoorOpen) {
+//      // the large doors can only be open when the trapdoor is open
+//      previousDoorTime = millis();
+//      if (kokerdoorOpen) {
+//        //Serial.println(F("Koker door closed"));
+//        kokerdoorOpen = false;
+//      } else {
+//        //Serial.println(F("Koker door opened"));
+//        kokerdoorOpen = true;
+//      }      
+//    } else {
+//      // this is for an edge case where the buttons are desynced
+//      // by default, the transmitter already checks if trapdoor is open
+//      //Serial.println(F("Trapdoor isnt open!"));
+//      moveDoor(closeBoundDoor, 500);
+//    }  
+//  }
+//  if (redButtonPress) {
+//    //Serial.println(F("Red press"));
+//    // check if we need to open or close the trapdoor
+//    if (!trapdoorOpen) {
+//      //Serial.println(F("Trapdoor opened"));
+//      // todo choose values
+//      servo.setAngle(trapdoorPin, 60);
+//      trapdoorOpen = true;
+//    } else {
+//      //Serial.println(F("Trapdoor closed"));
+//      // todo choose values
+//      servo.setAngle(trapdoorPin, 0);
+//      trapdoorOpen = false;
+//    }
+//  }
+//  if (kokerdoorOpen) {
+//    moveDoor(openBoundDoor, 60);
+//  } else {
+//    moveDoor(closeBoundDoor, 60);
+//  }
+//}
+
 void updateDoors() {
-  // the large doors can only be open when the trapdoor is open
-  if (blueButtonPress && trapdoorOpen) {
-    // todo open large doors
-    // servo.setAngle();
-  } else {
-    // todo close large doors
-    // servo.setAngle();
-  }
+  if (blueButtonPress) {
+    //Serial.println(F("Blue press"));
+      if (kokerdoorOpen) {
+        //Serial.println(F("Koker door closed"));
+        kokerdoorOpen = false;
+      } else {
+        //Serial.println(F("Koker door opened"));
+        kokerdoorOpen = true;
+      }      
+  }  
   if (redButtonPress) {
+    //Serial.println(F("Red press"));
     // check if we need to open or close the trapdoor
     if (!trapdoorOpen) {
-      // todo open trapdoor
-      // servo.setAngle();
+      //Serial.println(F("Trapdoor opened"));
+      // todo choose values
+      servo.setAngle(trapdoorPin, 60);
       trapdoorOpen = true;
     } else {
-      // todo close trapdoor
-      // servo.setAngle();
+      //Serial.println(F("Trapdoor closed"));
+      // todo choose values
+      servo.setAngle(trapdoorPin, 0);
       trapdoorOpen = false;
     }
+  }
+  if (kokerdoorOpen) {
+    moveDoor(openBoundDoor, 60);
+  } else {
+    moveDoor(closeBoundDoor, 60);
   }
 }
 
@@ -381,6 +447,7 @@ void calibrateGrabber() {
 
   currentArmPos = upperBoundArm;
   currentHandPos = grabBoundHand;
+  currentKokerPos = closeBoundDoor;
 }
 
 bool moveArm(uint8_t bound, uint8_t interval) {
@@ -416,6 +483,25 @@ bool moveHands(uint8_t bound, uint8_t interval) {
       return true;
     }
     previousSubTime = millis();
+    return false;
+  }
+  return false;
+}
+
+bool moveDoor(uint8_t bound, uint8_t interval) {
+  Serial.println(currentKokerPos);
+  if (millis() - previousDoorTime > interval) {
+    if (currentKokerPos < bound) {
+      currentKokerPos += 2;
+      servo.setAngle(kokerdoorPin, currentKokerPos);
+    } else if (currentArmPos > bound) {
+      currentKokerPos -= 2;
+      servo.setAngle(kokerdoorPin, currentKokerPos);
+    } else {
+      currentKokerPos = bound;
+      return true;
+    }
+    previousDoorTime = millis();
     return false;
   }
   return false;
