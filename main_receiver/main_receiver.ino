@@ -38,8 +38,8 @@ const uint8_t constrainValue = 20,             // absolute minimum value for the
               ungrabBoundHand = 115,           // angle at which the hands let go of a block
               closedBoundAnkara = 0,           // angle at which the trapdoor is closed
               openBoundAnkara = 60,            // angle at which the trapdoor is open
-              closeBoundDoor = 24,              // angle at which the big doors are open
-              openBoundDoor = 90;             // angle at which the big doors are closed
+              closeBoundDoor = 35,              // angle at which the big doors are open
+              openBoundDoor = 95;             // angle at which the big doors are closed
 
 enum GS {
   IDLER,
@@ -248,8 +248,8 @@ void updateGrabber() {
       break;
 
     case GRAB:
-      interval = 30;
-      grabSequenceInterval = interval * (abs(receiveBoundHand - grabBoundHand));
+      interval = 10;
+      grabSequenceInterval = interval * (abs(receiveBoundHand - grabBoundHand)) - 500;
       //Serial.println(grabSequenceInterval);
       if (moveHands(grabBoundHand, interval) && millis() - previousTime > grabSequenceInterval) {
         // go ahead and raise the arm

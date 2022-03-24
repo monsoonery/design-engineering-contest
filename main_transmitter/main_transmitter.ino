@@ -45,8 +45,8 @@ enum melodyType {
 
 /* VARIABLES */
 const uint8_t constrainValue = 50,
-              maxSpeedPower = 150,
-              maxSteerPower = 150,
+              maxSpeedPower = 205,
+              maxSteerPower = 200,
               maxSpeedPowerPrec = 100,
               maxSteerPowerPrec = 50;
 int speed_R = 0;
@@ -330,10 +330,11 @@ void checkInputs() {
 
   // turn potentiometer to adjust belt speed/direction
   int potValue = analogRead(potPin);
-  payload[8] = map(potValue, 0, 1023, 0, 255);
+  payload[8] = map(potValue, 0, 1023, 255, 0);
   if (payload[8] % 42 - 2 == 0) {
     // auditory feedback on controller every 1/6th step
     tone(buzzerPin, 1000, 50);
+    Serial.println(payload[8]);
   }
 
   // press button to activate defend mode
