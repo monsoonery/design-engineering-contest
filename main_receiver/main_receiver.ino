@@ -38,7 +38,7 @@ const uint8_t constrainValue = 20,             // absolute minimum value for the
               ungrabBoundHand = 115,           // angle at which the hands let go of a block
               closedBoundAnkara = 0,           // angle at which the trapdoor is closed
               openBoundAnkara = 60,            // angle at which the trapdoor is open
-              closeBoundDoor = 35,              // angle at which the big doors are open
+              closeBoundDoor = 34,              // angle at which the big doors are open
               openBoundDoor = 95;             // angle at which the big doors are closed
 
 enum GS {
@@ -80,20 +80,39 @@ bool trapdoorOpen = false,                     // a flag to track the trapdoor s
 
 void setup() {
   setupWithoutSound();
+  servo.setAngle(kokerdoorPin, closeBoundDoor);
+  servo.setAngle(trapdoorPin, closedBoundAnkara);
+  lastTransmissionTime = millis();
+  sussyMusic();
 }
 
 void loop() {
   checkRadio();                              // check for new incoming transmissions
   if (newTransmission) {
     checkDefendGrabber();
-    updateBelt();                              // update the belt speed according to potentiometer input
     checkSounds();                             // choose the desired melody/sound if applicable
     updateDoors();                             // open or close the trapdoor or tube doors
   }
+  updateBelt();                              // update the belt speed according to potentiometer input
   updateWheels();                            // actuate wheels according to joystick input
   updateGrabber();                           // activate the grabbing sequence if button was pressed
   updateMelody();                            // update the melody/sound (play the next note) if one was selected
 }
+
+
+void sussyMusic() {
+  const int melody[] = {NOTE_D4, NOTE_D4, NOTE_D5, NOTE_A4, 0, NOTE_GS4, NOTE_G4, NOTE_F4, NOTE_D4, NOTE_F4, NOTE_G4};
+  const uint8_t noteDurations[] = {8, 8, 4, 3, 16, 4, 4, 4, 8, 8, 8};
+  const uint8_t melodyLength = sizeof(melody) / sizeof(melody[0]);
+  for (uint8_t note = 0; note < melodyLength; note++) {
+    int noteDuration = 800 / noteDurations[note];
+    tone(buzzerPin, melody[note], noteDuration);
+    int pauseBetweenNotes = noteDuration * 1.30;
+    delay(pauseBetweenNotes);
+    noTone(buzzerPin);                                            //play no sound through the buzzer
+  }
+}
+
 
 void setupWithSound() {
   // start serial
@@ -200,13 +219,14 @@ void checkRadio() {
     newTransmission = true;
   } else {
     newTransmission = false;
-    if (millis() - lastTransmissionTime > 3000) {
-      //tone(buzzerPin, NOTE_FS4);
+    if (millis() - lastTransmissionTime > 1000) {
+      tone(buzzerPin, NOTE_FS4);
       // stop the wheels to avoid collision until radio is back
       output_power_L = 0;
       output_power_R = 0;
       output_direction_L = 0;
       output_direction_R = 0;
+      beltSpeed = 124;
     }
   }
 }
@@ -345,47 +365,6 @@ void checkSounds() {
   }
 }
 
-//void updateDoors() {
-//  if (blueButtonPress) {
-//    //Serial.println(F("Blue press"));
-//    if (trapdoorOpen) {
-//      // the large doors can only be open when the trapdoor is open
-//      previousDoorTime = millis();
-//      if (kokerdoorOpen) {
-//        //Serial.println(F("Koker door closed"));
-//        kokerdoorOpen = false;
-//      } else {
-//        //Serial.println(F("Koker door opened"));
-//        kokerdoorOpen = true;
-//      }      
-//    } else {
-//      // this is for an edge case where the buttons are desynced
-//      // by default, the transmitter already checks if trapdoor is open
-//      //Serial.println(F("Trapdoor isnt open!"));
-//      moveDoor(closeBoundDoor, 500);
-//    }  
-//  }
-//  if (redButtonPress) {
-//    //Serial.println(F("Red press"));
-//    // check if we need to open or close the trapdoor
-//    if (!trapdoorOpen) {
-//      //Serial.println(F("Trapdoor opened"));
-//      // todo choose values
-//      servo.setAngle(trapdoorPin, 60);
-//      trapdoorOpen = true;
-//    } else {
-//      //Serial.println(F("Trapdoor closed"));
-//      // todo choose values
-//      servo.setAngle(trapdoorPin, 0);
-//      trapdoorOpen = false;
-//    }
-//  }
-//  if (kokerdoorOpen) {
-//    moveDoor(openBoundDoor, 60);
-//  } else {
-//    moveDoor(closeBoundDoor, 60);
-//  }
-//}
 
 void updateDoors() {
   if (blueButtonPress) {
@@ -489,7 +468,6 @@ bool moveHands(uint8_t bound, uint8_t interval) {
 }
 
 bool moveDoor(uint8_t bound, uint8_t interval) {
-  Serial.println(currentKokerPos);
   if (millis() - previousDoorTime > interval) {
     if (currentKokerPos < bound) {
       currentKokerPos += 2;

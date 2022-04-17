@@ -128,7 +128,7 @@ boolean stickPress() {
 void setup() {
   // start serial
   Serial.begin(9600);
-  Serial.println("Initializing...");
+  Serial.println("Initializing controller...");
 
   // use internal 10k pullup resistor for joystick button
   Serial.print("I/O... ");
@@ -155,6 +155,17 @@ void setup() {
   Serial.println("done.");
 
   // play sussy music
+  //sussyMusic();
+  Serial.println("Initialization complete!");
+}
+
+void loop() {
+  checkInputs();
+  sendRadio();                                  // send inputs over RF
+  delay(10);                                    // wait before next loop
+}
+
+void sussyMusic() {
   const int melody[] = {NOTE_D4, NOTE_D4, NOTE_D5, NOTE_A4, 0, NOTE_GS4, NOTE_G4, NOTE_F4, NOTE_D4, NOTE_F4, NOTE_G4};
   const uint8_t noteDurations[] = {8, 8, 4, 3, 16, 4, 4, 4, 8, 8, 8};
   const uint8_t melodyLength = sizeof(melody) / sizeof(melody[0]);
@@ -165,13 +176,6 @@ void setup() {
     delay(pauseBetweenNotes);
     noTone(buzzerPin);                                            //play no sound through the buzzer
   }
-  Serial.println("Initialization complete!");
-}
-
-void loop() {
-  checkInputs();
-  sendRadio();                                  // send inputs over RF
-  delay(10);                                    // wait before next loop
 }
 
 void checkInputs() {
@@ -222,15 +226,15 @@ void checkInputs() {
     output_power_R = constrain(speed_R, constrainValue, 255);
     //output_power_R = map(output_power_R, 0, 255, constrainValue, 255);
     output_direction_R = LOW;
-    Serial.print("R > 0 and output power = ");
-    Serial.print(output_power_R);
+    // Serial.print("R > 0 and output power = ");
+    // Serial.print(output_power_R);
   } else {
     output_power_R = 255 + speed_R - constrainValue;
     output_power_R = constrain(255 + speed_R, 0, 255 - constrainValue);
     //output_power_R = map(output_power_L, 0, 255, 0, 255 - constrainValue);
     output_direction_R = HIGH;
-    Serial.print("R < 0 and output power = ");
-    Serial.print(output_power_R);
+    // Serial.print("R < 0 and output power = ");
+    // Serial.print(output_power_R);
   }
 
   if (speed_L > 0) {
@@ -238,15 +242,15 @@ void checkInputs() {
     output_power_L = constrain(speed_L, constrainValue, 255);
     //output_power_L = map(output_power_L, 0, 255, constrainValue, 255);
     output_direction_L = LOW;
-    Serial.print(" || L > 0 and output power = ");
-    Serial.println(output_power_L);
+    // Serial.print(" || L > 0 and output power = ");
+    // Serial.println(output_power_L);
   } else {
     output_power_L = 255 + speed_L - constrainValue;
     output_power_L = constrain(255 + speed_L, 0, 255 - constrainValue);
     //output_power_L = map(output_power_L, 0, 255, 0, 255 - constrainValue);
     output_direction_L = HIGH;
-    Serial.print(" || L < 0 and output power = ");
-    Serial.println(output_power_L);
+    // Serial.print(" || L < 0 and output power = ");
+    // Serial.println(output_power_L);
   }
 
   /* END WHEEL CALCULATIONS */
@@ -280,25 +284,25 @@ void checkInputs() {
   // press button for grab and throw block sequence
   if (grabButtonPress()) {
     payload[5] = true;
-    tone(buzzerPin, NOTE_A5, 50);                 // auditory feedback on controller
+    tone(buzzerPin, NOTE_E4, 200);                 // auditory feedback on controller
     payload[4] = DENY;                               // play the grab block sound on the car
   } else {
     payload[5] = false;
   }
 
-  // todo if button press open trap door
+  // if button press open ankara
   if (redButtonPress()) {
     if (trapdoorOpen) {
       trapdoorOpen = false;
       digitalWrite(redLedPin, LOW);
 
-      tone(buzzerPin, NOTE_A5, 50);                 // auditory feedback on controller
+      tone(buzzerPin, NOTE_G4, 100);                 // auditory feedback on controller
       payload[4] = DENY;
     } else {
       trapdoorOpen = true;
       digitalWrite(redLedPin, HIGH);
 
-      tone(buzzerPin, NOTE_G4, 50);                 // auditory feedback on controller
+      tone(buzzerPin, NOTE_A5, 100);                 // auditory feedback on controller
       payload[4] = ACCEPT;
     }
     payload[6] = true;
@@ -312,13 +316,13 @@ void checkInputs() {
       kokerdoorOpen = false;
       digitalWrite(blueLedPin, LOW);
 
-      tone(buzzerPin, NOTE_F4, 50);                 // auditory feedback on controller
+      tone(buzzerPin, NOTE_C4, 100);                 // auditory feedback on controller
       payload[4] = DENY;
     } else {
       kokerdoorOpen = true;
       digitalWrite(blueLedPin, HIGH);
 
-      tone(buzzerPin, NOTE_E4, 50);
+      tone(buzzerPin, NOTE_F4, 100);
       payload[4] = ACCEPT;
     }
     payload[7] = true;
@@ -342,10 +346,10 @@ void checkInputs() {
     payload[9] = true;
     defending = !defending;
     if (defending) {
-      tone(buzzerPin, NOTE_D4, 50);                         // auditory feedback on controller
+      tone(buzzerPin, NOTE_G3, 100);                         // auditory feedback on controller
       payload[4] = DENY;                                       // play DENY
     } else {
-      tone(buzzerPin, NOTE_C4, 50);                         // auditory feedback on controller
+      tone(buzzerPin, NOTE_C3, 100);                         // auditory feedback on controller
       payload[4] = ACCEPT;                                       // play ACCEPT
     }
   } else {
@@ -356,7 +360,7 @@ void checkInputs() {
 
 void sendRadio() {
   radio.write(&payload, sizeof(payload));
-  //debugRadio();
+  debugRadio();
 }
 
 void debugRadio() {

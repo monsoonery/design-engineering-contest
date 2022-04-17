@@ -101,11 +101,11 @@ int spaceMelody[] = {NOTE_C3, NOTE_G3, NOTE_C4, 0, NOTE_E4, NOTE_DS4};
 uint8_t spaceNoteDurations[] = {2, 2, 2, 8, 8, 2};
 int spaceMelodyLength = sizeof(spaceMelody) / sizeof(spaceMelody[0]);
 
-int denyMelody[] = {0, NOTE_C4, NOTE_G3};
+int denyMelody[] = {0, NOTE_C3, NOTE_G3};
 uint8_t denyNoteDurations[] = {4, 8, 8};
 int denyMelodyLength = sizeof(denyMelody) / sizeof(denyMelody[0]);
 
-int acceptMelody[] = {0, NOTE_G3, NOTE_C3};
+int acceptMelody[] = {0, NOTE_G4, NOTE_C4};
 uint8_t acceptNoteDurations[] = {4, 8, 8};
 int acceptMelodyLength = sizeof(acceptMelody) / sizeof(acceptMelody[0]);
 
